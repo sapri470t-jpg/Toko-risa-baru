@@ -1,1 +1,446 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDS + Riwayat & Total - Monitor Dapur Kedai Moods</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', Courier, monospace;
+        }
 
+        body {
+            background-color: #1e1e24;
+            color: #fff;
+            padding: 20px;
+        }
+
+        header {
+            background-color: #ff4757;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        header h1 { font-size: 1.6rem; letter-spacing: 2px; }
+        header .time { font-size: 1.1rem; font-weight: bold; }
+
+        /* SIMULATOR INPUT KASIR */
+        .simulator-box {
+            background: #2f3542;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border: 1px dashed #747d8c;
+        }
+        .simulator-box h3 { margin-bottom: 10px; color: #ffa502; }
+        .simulator-box select, .simulator-box input, .simulator-box button {
+            padding: 8px; margin-right: 10px; font-weight: bold; margin-bottom: 5px;
+        }
+        .simulator-box button { background: #2ed573; border: none; cursor: pointer; color: black;}
+
+        /* MONITOR UTAMA (ANTREAN AKTIF) */
+        .section-title {
+            font-size: 1.4rem;
+            color: #ffa502;
+            margin-bottom: 15px;
+            border-left: 5px solid #ffa502;
+            padding-left: 10px;
+        }
+
+        .kds-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        /* TIKET PESANAN */
+        .ticket-card {
+            background: #ffffff;
+            color: #000000;
+            border-radius: 6px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-top: 8px solid #ffa502;
+        }
+
+        .ticket-card.urgent {
+            border-top: 8px solid #ff4757;
+            animation: blink 2s infinite;
+        }
+
+        .ticket-header {
+            background: #f1f2f6;
+            padding: 10px;
+            border-bottom: 2px dashed #ccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ticket-id { font-size: 1.3rem; font-weight: bold; }
+        .ticket-meta { font-size: 0.8rem; text-align: right; color: #57606f; }
+
+        .ticket-body {
+            padding: 15px;
+            flex-grow: 1;
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 1.05rem;
+            font-weight: bold;
+        }
+
+        .item-qty { color: #ff4757; margin-right: 5px; }
+        .item-notes { font-size: 0.85rem; color: #747d8c; margin-left: 25px; margin-bottom: 10px; font-style: italic; }
+
+        .ticket-footer { padding: 10px; background: #f1f2f6; border-top: 1px solid #ddd; }
+        .btn-done {
+            width: 100%; background-color: #2ed573; color: white; border: none;
+            padding: 12px; font-size: 1.1rem; font-weight: bold; cursor: pointer;
+            border-radius: 4px; text-transform: uppercase;
+        }
+
+        /* KOTAK RINGKASAN TOTAL JUMLAH */
+        .summary-wrapper {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        .summary-card {
+            background: #1e1e24;
+            padding: 15px;
+            border-radius: 6px;
+            flex: 1;
+            border: 1px solid #3f4451;
+            text-align: center;
+        }
+        .summary-card p { font-size: 0.9rem; color: #a4b0be; margin-bottom: 5px; }
+        .summary-card h4 { font-size: 1.5rem; color: #2ed573; }
+
+        /* SECTION RIWAYAT */
+        .history-box {
+            background: #2f3542;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background: #212529;
+        }
+
+        .history-table th, .history-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #3f4451;
+            font-size: 0.95rem;
+        }
+
+        .history-table th {
+            background-color: #ff4757;
+            color: white;
+        }
+
+        .history-table tr:hover {
+            background-color: #2b303c;
+        }
+
+        .status-badge {
+            background-color: #2ed573;
+            color: black;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        @keyframes blink {
+            0% { box-shadow: 0 0 5px #ff4757; }
+            50% { box-shadow: 0 0 20px #ff4757; }
+            100% { box-shadow: 0 0 5px #ff4757; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🖥️ MONITOR UTAMA DAPUR (KDS)</h1>
+        <div class="time" id="live-clock">00:00:00</div>
+    </header>
+
+    <div class="simulator-box">
+        <h3>[Simulator Kasir] Kirim Pesanan Baru ke Dapur:</h3>
+        <input type="text" id="sim-meja" placeholder="No. Meja / Antrean" style="width: 120px;">
+        
+        <select id="sim-menu">
+            <optgroup label="ANEKA CIRENG">
+                <option value="Cireng Ayam" data-harga="10000">Cireng Ayam (10k)</option>
+                <option value="Cireng Keju" data-harga="10000">Cireng Keju (10k)</option>
+                <option value="Cireng Jando" data-harga="5000">Cireng Jando (5k)</option>
+                <option value="Cireng Chili Oil" data-harga="10000">Cireng Chili Oil (10k)</option>
+                <option value="Cireng Rujak" data-harga="10000">Cireng Rujak (10k)</option>
+                <option value="Cireng Kuah Kaldu" data-harga="10000">Cireng Kuah Kaldu (10k)</option>
+                <option value="Cireng Kuah Creamy" data-harga="10000">Cireng Kuah Creamy (10k)</option>
+                <option value="Cireng Gochujang" data-harga="10000">Cireng Gochujang (10k)</option>
+            </optgroup>
+            <optgroup label="TOAST">
+                <option value="Smoke Beef Toast" data-harga="8000">Smoke Beef Toast (8k)</option>
+                <option value="Smoke Beef Cheese" data-harga="11000">Smoke Beef Cheese (11k)</option>
+                <option value="Beef Toast" data-harga="13000">Beef Toast (13k)</option>
+                <option value="Beef and Cheese" data-harga="16000">Beef and Cheese (16k)</option>
+                <option value="Choco Melt" data-harga="10000">Choco Melt (10k)</option>
+                <option value="Choco Cheese" data-harga="12000">Choco Cheese (12k)</option>
+                <option value="Tiramisu Cheese" data-harga="12000">Tiramisu Cheese (12k)</option>
+                <option value="Matcha Cheese" data-harga="12000">Matcha Cheese (12k)</option>
+            </optgroup>
+            <optgroup label="RICE BOWL">
+                <option value="Rice Bowl Nuget Mayo" data-harga="15000">Rice Bowl Nuget Mayo (15k)</option>
+                <option value="Rice Bowl Nuget Hot Lava" data-harga="15000">Rice Bowl Nuget Hot Lava (15k)</option>
+                <option value="Rice Bowl Karage Mayo" data-harga="15000">Rice Bowl Karage Mayo (15k)</option>
+                <option value="Rice Bowl Karage Hot Lava" data-harga="15000">Rice Bowl Karage Hot Lava (15k)</option>
+                <option value="Rice Bowl Cumi Mercon" data-harga="18000">Rice Bowl Cumi Mercon (18k)</option>
+                <option value="Nasi Ayam Sawang" data-harga="20000">Nasi Ayam Sawang (20k)</option>
+                <option value="Nasi Ayam Cajo" data-harga="20000">Nasi Ayam Cajo (20k)</option>
+            </optgroup>
+            <optgroup label="PANGSIT & BASO ACI">
+                <option value="Pangsit Ayam" data-harga="10000">Pangsit Ayam (10k)</option>
+                <option value="Pangsit Keju Lumer" data-harga="15000">Pangsit Keju Lumer (15k)</option>
+                <option value="Pangsit Kuah" data-harga="15000">Pangsit Kuah (15k)</option>
+                <option value="Pangsit Kuah Keju" data-harga="15000">Pangsit Kuah Keju (15k)</option>
+                <option value="Pangsit Chili Oil" data-harga="15000">Pangsit Chili Oil (15k)</option>
+                <option value="Pangsit Goreng" data-harga="16000">Pangsit Goreng (16k)</option>
+                <option value="Baso Aci" data-harga="13000">Baso Aci (13k)</option>
+                <option value="Baso Aci Kuah Creamy" data-harga="15000">Baso Aci Kuah Creamy (15k)</option>
+            </optgroup>
+            <optgroup label="SPAGHETTI & RAMEN">
+                <option value="Spaghetti Bolognese" data-harga="10000">Spaghetti Bolognese (10k)</option>
+                <option value="Spaghetti Aglio Olio" data-harga="10000">Spaghetti Aglio Olio (10k)</option>
+                <option value="Spaghetti Carbonara" data-harga="10000">Spaghetti Carbonara (10k)</option>
+                <option value="Ramen Hakata" data-harga="12000">Ramen Hakata (12k)</option>
+                <option value="Ramen Yakitori" data-harga="12000">Ramen Yakitori (12k)</option>
+                <option value="Ramen Spicy" data-harga="12000">Ramen Spicy (12k)</option>
+            </optgroup>
+            <optgroup label="ANEKA SNACK">
+                <option value="French Fries" data-harga="10000">French Fries (10k)</option>
+                <option value="Cheese Fries" data-harga="15000">Cheese Fries (15k)</option>
+                <option value="Chicken Bites" data-harga="15000">Chicken Bites (15k)</option>
+                <option value="Mix Platter" data-harga="15000">Mix Platter (15k)</option>
+                <option value="Basreng" data-harga="10000">Basreng (10k)</option>
+                <option value="Banana Nuget" data-harga="12000">Banana Nuget (12k)</option>
+                <option value="Ceker Mercon" data-harga="10000">Ceker Mercon (10k)</option>
+                <option value="Ice Cream Cemil" data-harga="10000">Ice Cream Cemil (10k)</option>
+                <option value="Kul-Kul" data-harga="5000">Kul-Kul (5k)</option>
+            </optgroup>
+
+            <optgroup label="MOODS COFFEE">
+                <option value="Americano" data-harga="8000">Americano (8k)</option>
+                <option value="Creamy Aren" data-harga="13000">Creamy Aren (13k)</option>
+                <option value="Butterscotch" data-harga="13000">Butterscotch (13k)</option>
+                <option value="Salted Caramel" data-harga="13000">Salted Caramel (13k)</option>
+                <option value="Heazelnut Latte" data-harga="13000">Heazelnut Latte (13k)</option>
+                <option value="Vanilla Latte" data-harga="13000">Vanilla Latte (13k)</option>
+                <option value="Creamy Latte" data-harga="13000">Creamy Latte (13k)</option>
+                <option value="Pandan Latte" data-harga="13000">Pandan Latte (13k)</option>
+            </optgroup>
+
+            <optgroup label="MILK SERIES">
+                <option value="Ocean Blue Milk" data-harga="10000">Ocean Blue Milk (10k)</option>
+                <option value="Raspberry Milk" data-harga="10000">Raspberry Milk (10k)</option>
+                <option value="Manggo Milk" data-harga="10000">Manggo Milk (10k)</option>
+                <option value="Orange Milk" data-harga="10000">Orange Milk (10k)</option>
+                <option value="Melon Milk" data-harga="10000">Melon Milk (10k)</option>
+                <option value="Pandan Milk" data-harga="10000">Pandan Milk (10k)</option>
+                <option value="Brown Sugar Milk" data-harga="10000">Brown Sugar Milk (10k)</option>
+                <option value="Heazelnut Milk" data-harga="10000">Heazelnut Milk (10k)</option>
+                <option value="Chocolate Milk" data-harga="10000">Chocolate Milk (10k)</option>
+            </optgroup>
+
+            <optgroup label="YAKULT SERIES">
+                <option value="Raspbery Yakult" data-harga="12000">Raspbery Yakult (12k)</option>
+                <option value="Manggo Yakult" data-harga="12000">Manggo Yakult (12k)</option>
+                <option value="Orange Yakult" data-harga="12000">Orange Yakult (12k)</option>
+                <option value="Melon Yakult" data-harga="12000">Melon Yakult (12k)</option>
+                <option value="Pandan Yakult" data-harga="12000">Pandan Yakult (12k)</option>
+                <option value="Blue Yakult" data-harga="12000">Blue Yakult (12k)</option>
+            </optgroup>
+
+            <optgroup label="MINUMAN">
+                <option value="Thai Tea" data-harga="10000">Thai Tea (10k)</option>
+                <option value="Green Tea" data-harga="10000">Green Tea (10k)</option>
+                <option value="Teh Tarik" data-harga="10000">Teh Tarik (10k)</option>
+                <option value="Lemon Tea" data-harga="6000">Lemon Tea (6k)</option>
+                <option value="Ice Tea" data-harga="5000">Ice Tea (5k)</option>
+                <option value="Mineral" data-harga="3000">Mineral (3k)</option>
+            </optgroup>
+        </select>
+
+        <input type="number" id="sim-qty" value="1" min="1" style="width: 50px;">
+        <input type="text" id="sim-notes" placeholder="Catatan (ex: Level 3, Es Pisah)">
+        
+        <button onclick="kirimKeDapur()">KIRIM KE DAPUR ➡️</button>
+    </div>
+
+    <h2 class="section-title">Pesanan Antrean Aktif (Dapur)</h2>
+    <div class="kds-grid" id="kds-area"></div>
+
+    <div class="history-box">
+        <h2 class="section-title" style="color:#2ed573; border-left-color:#2ed573;">Riwayat Pesanan Selesai / Terkirim</h2>
+        
+        <div class="summary-wrapper">
+            <div class="summary-card">
+                <p>🛍️ TOTAL ITEM TERJUAL</p>
+                <h4 id="total-qty-terjual" style="color: #ffa502;">0 Porsi</h4>
+            </div>
+            <div class="summary-card">
+                <p>💰 TOTAL PENDAPATAN (OMZET)</p>
+                <h4 id="total-omzet">Rp 0</h4>
+            </div>
+        </div>
+
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Waktu Selesai</th>
+                    <th>ID Tiket</th>
+                    <th>No. Meja</th>
+                    <th>Item Pesanan</th>
+                    <th>Catatan</th>
+                    <th>Total Harga</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="history-area"></tbody>
+        </table>
+    </div>
+
+    <script>
+        let orderCount = 101;
+        let dataTiketAktif = {};
+        
+        // Variabel penampung jumlah hitungan total akumulasi
+        let akumulasiOmzet = 0;
+        let akumulasiQty = 0;
+
+        // Jam Digital
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString('id-ID');
+        }, 1000);
+
+        function kirimKeDapur() {
+            const meja = document.getElementById('sim-meja').value || "TA / Driver";
+            const selectMenu = document.getElementById('sim-menu');
+            const menuName = selectMenu.value;
+            const hargaSatuan = parseInt(selectMenu.options[selectMenu.selectedIndex].getAttribute('data-harga')) || 0;
+            const qty = parseInt(document.getElementById('sim-qty').value);
+            const notes = document.getElementById('sim-notes').value;
+            
+            const waktuMasuk = new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'});
+            const totalHarga = hargaSatuan * qty;
+
+            dataTiketAktif[orderCount] = {
+                meja: meja,
+                menu: menuName,
+                qty: qty,
+                notes: notes || "-",
+                totalHarga: totalHarga
+            };
+
+            createTicketElement(orderCount, meja, waktuMasuk, menuName, qty, notes);
+            orderCount++;
+            
+            document.getElementById('sim-notes').value = "";
+            document.getElementById('sim-qty').value = "1";
+        }
+
+        function createTicketElement(id, meja, waktu, menu, qty, notes) {
+            const kdsArea = document.getElementById('kds-area');
+            const card = document.createElement('div');
+            card.className = 'ticket-card';
+            card.id = `ticket-${id}`;
+
+            if(id % 3 === 0) { card.className += ' urgent'; }
+
+            let notesHTML = notes ? `<div class="item-notes">* NB: ${notes}</div>` : '';
+
+            card.innerHTML = `
+                <div class="ticket-header">
+                    <div class="ticket-id">#${id}</div>
+                    <div class="ticket-meta">
+                        <strong>MEJA: ${meja}</strong><br>
+                        Jam: ${waktu}
+                    </div>
+                </div>
+                <div class="ticket-body">
+                    <div class="order-item">
+                        <span><span class="item-qty">${qty}x</span> ${menu}</span>
+                    </div>
+                    ${notesHTML}
+                </div>
+                <div class="ticket-footer">
+                    <button class="btn-done" onclick="selesaikanPesanan(${id})">✓ SELESAI</button>
+                </div>
+            `;
+            kdsArea.insertBefore(card, kdsArea.firstChild);
+        }
+
+        function selesaikanPesanan(id) {
+            const tiket = document.getElementById(`ticket-${id}`);
+            if (tiket) {
+                tiket.style.transform = "scale(0)";
+                tiket.style.transition = "transform 0.3s ease";
+                
+                setTimeout(() => {
+                    const data = dataTiketAktif[id] || { meja: "-", menu: "Menu", qty: 0, notes: "-", totalHarga: 0 };
+                    const waktuSelesai = new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                    
+                    // PROSES HITUNG OTOMATIS TAMBAH JUMLAH
+                    akumulasiOmzet += data.totalHarga;
+                    akumulasiQty += data.qty;
+
+                    // Update tulisan angka jumlah di layar secara real-time
+                    document.getElementById('total-omzet').innerText = "Rp " + akumulasiOmzet.toLocaleString('id-ID');
+                    document.getElementById('total-qty-terjual').innerText = akumulasiQty + " Porsi";
+
+                    const historyArea = document.getElementById('history-area');
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${waktuSelesai}</td>
+                        <td><strong>#${id}</strong></td>
+                        <td>${data.meja}</td>
+                        <td>${data.qty}x ${data.menu}</td>
+                        <td style="font-style: italic; color: #a4b0be;">${data.notes}</td>
+                        <td style="color:#2ed573; font-weight:bold;">Rp ${data.totalHarga.toLocaleString('id-ID')}</td>
+                        <td><span class="status-badge">DONE</span></td>
+                    `;
+                    
+                    historyArea.insertBefore(row, historyArea.firstChild);
+                    tiket.remove();
+                    delete dataTiketAktif[id];
+                }, 300);
+            }
+        }
+
+        window.onload = function() {
+            // Bersih tanpa dummy data awal
+        };
+    </script>
+</body>
+  </html>
